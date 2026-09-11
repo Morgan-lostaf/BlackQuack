@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Black Quack Brewclub — From the hill. To the tap.</title>
+<meta name="description" content="A Kalamunda-based homebrew club born from watching WAFL games, drinking cans on the grass hill in the sun, and mates making better beer together." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="styles.css" />
+
+<style>
+  /* Prevent FOUC before React mounts */
+  #root { min-height: 100vh; }
+  .boot-hero {
+    padding: 180px 24px 80px;
+    max-width: 1440px;
+    margin: 0 auto;
+  }
+  .boot-hero h1 {
+    font-family: "Archivo Black", sans-serif;
+    font-size: clamp(56px, 11vw, 172px);
+    line-height: 0.88;
+    letter-spacing: -0.025em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+</style>
+</head>
+<body id="top">
+
+  <!-- Text-first fallback content — replaced on React mount -->
+  <div id="root">
+    <div class="boot-hero">
+      <h1>Black Quack Brewclub</h1>
+      <p style="color:#a3a099; max-width: 56ch; margin-top: 24px; font-family: Archivo, sans-serif;">From the hill. To the tap. A Kalamunda based brew club born from watching WAFL games, drinking cans on the grass hill in the sun, and mates making better beer together.</p>
+    </div>
+  </div>
+
+  <!-- React -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <!-- Three.js hero (lazy — attached but doesn't block first paint) -->
+  <script src="three-scene.js" defer></script>
+
+  <!-- Components -->
+  <script type="text/babel" src="tweaks_panel.jsx"></script>
+  <script type="text/babel" src="components.jsx"></script>
+  <script type="text/babel" src="components-media.jsx"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "palette": "dark",
+      "motion": "subtle",
+      "heroVariant": "swan"
+    }/*EDITMODE-END*/;
+
+    /* -------------------- Hero -------------------- */
+
+    function Hero({ motion, variant }) {
+      const canvasRef = useRef(null);
+      const sceneRef = useRef(null);
+      const [webglOk, setWebglOk] = useState(true);
+
+      useEffect(() => {
+        // Feature detect
+        try {
+          const c = document.createElement("canvas");
+          const ok = !!(window.WebGLRenderingContext && (c.getContext("webgl2") || c.getContext("webgl")));
+          setWebglOk(ok);
+          if (!ok) return;
+        } catch (e) {
+          setWebglOk(false);
+          return;
+        }
+
+        // Defer init to next idle to let hero text paint first
+        let disposed = false;
+        const init = async () => {
+          if (disposed) return;
+          if (!window.BQ_initHero) {
+            // wait for script
+            await new Promise(r => setTimeout(r, 60));
+            if (!window.BQ_initHero) { await new Promise(r => setTimeout(r, 200)); }
+          }
+          if (!window.BQ_initHero || disposed) return;
+          sceneRef.current = await window.BQ_initHero(canvasRef.current, {
+            motion, variant,
+            bg: getComputedStyle(document.body).getPropertyValue("--bg").trim() || "#0a0a0a"
+          });
+        };
+        const idle = window.requestIdleCallback ? window.requestIdleCallback(init, { timeout: 600 }) : setTimeout(init, 120);
+        return () => {
+          disposed = true;
+          if (window.requestIdleCallback && typeof idle === "number") {} // no-op
+          if (sceneRef.current) sceneRef.current.destroy();
+          sceneRef.current = null;
+        };
+      }, []);
+
+      // Push option changes through
+      useEffect(() => {
+        if (sceneRef.current) sceneRef.current.updateOpts({ motion, variant,
+          bg: getComputedStyle(document.body).getPropertyValue("--bg").trim() || "#0a0a0a"
+        });
+      }, [motion, variant]);
+
+      return (
+        <section className="hero" id="hero">
+          <div className="hero-canvas" ref={canvasRef} />
+          <div className={"hero-fallback " + (webglOk ? "" : "on")}>
+            <SwanMark size={640} />
+          </div>
+
+          <div className="wrap hero-grid">
+            <div className="hero-copy">
+              <div className="eyebrow" style={{marginBottom: 32}}>
+                <span>Kalamunda · WA · EST. 2023</span>
+              </div>
+              <h1 className="hero-headline">
+                Black<br />Quack.
+                <span className="accent-line">From the hill. To the tap.</span>
+              </h1>
+              <p className="hero-sub">
+                A Kalamunda based brew club born from watching WAFL games, drinking cans on the grass hill in the sun, and mates making better beer together.
+              </p>
+              <div className="hero-cta">
+                <a href="#" className="btn btn-primary">Join the club <ArrowRight /></a>
+                <a href="#tap" className="btn">See what's on tap <ArrowRight /></a>
+              </div>
+            </div>
+          </div>
+
+          <div className="hero-meta">
+            <div className="mono">
+              <span className="dot"></span>
+              6 taps pouring · Updated Fri
+            </div>
+            <div className="scroll-cue">Scroll</div>
+            <div className="mono" style={{textAlign:'right'}}>
+              N°23 · Kalamunda Fog<br/>
+              <span style={{color:'var(--fg-dim)'}}>Latest brew — 2026 Q1</span>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    /* -------------------- Reveal-on-scroll wiring -------------------- */
+
+    function useReveal() {
+      useEffect(() => {
+        const els = document.querySelectorAll(".section, .footer");
+        els.forEach(el => el.classList.add("reveal"));
+        const io = new IntersectionObserver((entries) => {
+          entries.forEach(e => {
+            if (e.isIntersecting) {
+              e.target.classList.add("in");
+              io.unobserve(e.target);
+            }
+          });
+        }, { threshold: 0, rootMargin: "0px 0px -10% 0px" });
+        els.forEach(el => io.observe(el));
+        return () => io.disconnect();
+      }, []);
+    }
+
+    /* -------------------- Tweaks controls -------------------- */
+
+    function BQTweaks({ tweaks, setTweak }) {
+      return (
+        <TweaksPanel>
+          <TweakSection title="Palette">
+            <TweakSelect
+              label="Mode"
+              value={tweaks.palette}
+              onChange={(v) => setTweak('palette', v)}
+              options={[
+                { label: 'Dark (default)', value: 'dark' },
+                { label: 'Warm mono',      value: 'warm' },
+                { label: 'Cool mono',      value: 'cool' },
+                { label: 'Light (invert)', value: 'light' },
+              ]}
+            />
+          </TweakSection>
+
+          <TweakSection title="3D Scene">
+            <TweakRadio
+              label="Hero object"
+              value={tweaks.heroVariant}
+              onChange={(v) => setTweak('heroVariant', v)}
+              options={[
+                { label: 'Swan', value: 'swan' },
+                { label: 'Pint', value: 'pint' },
+                { label: 'Can',  value: 'can' },
+              ]}
+            />
+            <TweakRadio
+              label="Motion"
+              value={tweaks.motion}
+              onChange={(v) => setTweak('motion', v)}
+              options={[
+                { label: 'Off',    value: 'off' },
+                { label: 'Subtle', value: 'subtle' },
+                { label: 'Full',   value: 'full' },
+              ]}
+            />
+          </TweakSection>
+
+          <TweakSuggestionBar suggestions={[
+            "Add a members-only recipe section",
+            "Make the swan gold instead of black",
+            "Show a Kalamunda map in the origin section",
+            "Add an events / brew days calendar",
+          ]} />
+        </TweaksPanel>
+      );
+    }
+
+    /* -------------------- App -------------------- */
+
+    function App() {
+      const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      useReveal();
+
+      useEffect(() => {
+        document.documentElement.setAttribute("data-palette", tweaks.palette);
+      }, [tweaks.palette]);
+
+      return (
+        <>
+          <Nav onJoinClick={() => {}} />
+          <Hero motion={tweaks.motion} variant={tweaks.heroVariant} />
+          <Origin />
+          <OnTap />
+          <Archive />
+          <Instagram />
+          <YouTube />
+          <Footer />
+          <BQTweaks tweaks={tweaks} setTweak={setTweak} />
+        </>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+
+</body>
+</html>
